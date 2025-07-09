@@ -5,9 +5,7 @@ from litellm import completion
 from dataclasses import dataclass, field
 from typing import List, Callable, Dict, Any
 
-import os
-
-
+# Agent adapted from Agentic AI course
 @dataclass
 class Prompt:
     messages: List[Dict] = field(default_factory=list)
@@ -17,7 +15,6 @@ class Prompt:
 
 def generate_response(prompt: Prompt) -> str:
     """Call LLM to get response"""
-
     messages = prompt.messages
     tools = prompt.tools
 
@@ -47,7 +44,6 @@ def generate_response(prompt: Prompt) -> str:
             result = json.dumps(result)
         else:
             result = response.choices[0].message.content
-
 
     return result
 
@@ -117,13 +113,20 @@ class Environment:
         """Execute an action and return the result."""
         try:
             result = action.execute(**args)
-            return self.format_result(result)
+            if hasattr(result, 'get_json'):
+                        result_data = result.get_json()
+            elif hasattr(result, 'data'):
+                result_data = result.data.decode()  # or whatever makes sense
+            else:
+                result_data = result
+
+            return self.format_result(result_data)
         except Exception as e:
             return {
                 "tool_executed": False,
                 "error": str(e),
                 "traceback": traceback.format_exc()
-            }
+        }
 
     def format_result(self, result: Any) -> dict:
         """Format the result with metadata."""
@@ -256,7 +259,7 @@ class Agent:
         self.agent_language = agent_language
         self.actions = action_registry
         self.environment = environment
-        self.api_key = api_key
+        self.api_key=api_key
 
     def construct_prompt(self, goals: List[Goal], memory: Memory, actions: ActionRegistry) -> Prompt:
         """Build prompt with memory context"""
@@ -293,8 +296,34 @@ class Agent:
     def prompt_llm_for_action(self, full_prompt: Prompt) -> str:
         response = self.generate_response(full_prompt)
         return response
+    
+    def step(self, user_input, memory=None):
+        """Process a single user message and return the agent's response."""
+        memory = memory or Memory()
+        self.set_current_task(memory, user_input)
 
-    def run(self, user_input: str, memory=None, max_iterations: int = 50) -> Memory:
+        # Construct prompt for this turn
+        prompt = self.construct_prompt(self.goals, memory, self.actions)
+        response = self.prompt_llm_for_action(prompt)
+
+        # Determine which action to execute
+        action, invocation = self.get_action(response)
+        result = self.environment.execute_action(action, invocation["args"])
+
+        # Update memory with this turn
+        self.update_memory(memory, response, result)
+
+        # Extract the reply to show in chat
+        # You may want to parse result or response for a user-friendly message
+        if 'result' in result and result['result']:
+            reply = result['result']
+        else:
+            reply = response
+
+        # Return reply and updated memory
+        return reply, memory
+
+    def run(self, user_input, memory=None, max_iterations: int = 50) -> Memory:
         """
         Execute the GAME loop for this agent with a maximum iteration limit.
         """
@@ -322,6 +351,8 @@ class Agent:
 
             # Check if the agent has decided to terminate
             if self.should_terminate(response):
+                # user_input = input("Is there anything else I can help with? ")
+                # Agent.run(user_input)
                 break
 
         return memory

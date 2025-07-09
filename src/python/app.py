@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import pandas as pd
-from test_agent import Agent, Goal, AgentFunctionCallingActionLanguage, Action, ActionRegistry, Environment, generate_response
+from agent import Agent, Goal, AgentFunctionCallingActionLanguage, Action, ActionRegistry, Environment, generate_response, Memory
 import os
 import json
 import time
@@ -11,7 +11,11 @@ from typing import List, Callable, Dict, Any
 from dotenv import load_dotenv
 load_dotenv()
 
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app)  # This enables CORS for all routes
+
 
 # Setup our agent
 
@@ -71,15 +75,30 @@ def add_item():
     return jsonify({'status': 'success'})
 
 # TODO add delete method
+@app.route('/api/pantry/')
 
-@app.route('/api/recipes', methods=['GET'])
+@app.route('/api/recipes', methods=['POST'])
 def recommend_recipe():
-    pantry = load_pantry()
-    pantry_list = pantry.to_json(orient="records")
-    user_input = input("What ingredients should I recommend a recipe for?")
-    final_memory = agent.run(user_input)
-    # return jsonify({'recipes': recipes})
-    return final_memory.get_memories()
+    data = request.json
+    user_message = data.get('message','')
+    memory_data = data.get('memory', None)
+
+    memory = Memory()
+    if memory_data:
+        memory.items = memory_data
+
+    reply, updated_memory = agent.step(user_message, memory)
+
+    return jsonify({
+        'response': reply,
+        'memory': updated_memory.items  # Send back updated conversation history
+    })
+    # pantry = load_pantry()
+    # pantry_list = pantry.to_json(orient="records")
+    # user_input = input("What ingredients should I recommend a recipe for?")
+    # final_memory = agent.run(user_input)
+    # # return jsonify({'recipes': recipes})
+    # return final_memory.get_memories()
 
 
 # Define the action registry and register some actions
@@ -98,13 +117,6 @@ action_registry.register(Action(
     parameters={},
     terminal=False
 ))
-# action_registry.register(Action(
-#     name="save_pantry",
-#     function=save_pantry,
-#     description="Saves the pantry database.",
-#     parameters={},
-#     terminal=False
-# ))
 action_registry.register(Action(
     name="recommend_recipe",
     function=recommend_recipe,

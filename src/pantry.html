@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pantry App (Bootstrap, Edit/Delete)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%); min-height: 100vh; }
+    .card { box-shadow: 0 8px 32px rgba(60, 72, 100, 0.12), 0 1.5px 5px rgba(60, 72, 100, 0.10); }
+    #pantrySection { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-7 col-lg-5">
+        <div class="card p-4">
+          <h1 class="text-center text-primary mb-4">My Pantry</h1>
+          <form id="addForm" class="row g-2 mb-3" autocomplete="off">
+            <div class="col-7">
+              <input type="text" id="item" class="form-control" placeholder="Item Name" required>
+            </div>
+            <div class="col-3">
+              <input type="number" id="quantity" class="form-control" placeholder="Qty" required min="1" value="1">
+            </div>
+            <div class="col-2 d-grid">
+              <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+          </form>
+          <div class="d-grid mb-3">
+            <button id="togglePantryBtn" class="btn btn-outline-primary">Show Pantry</button>
+          </div>
+          <div id="pantrySection">
+            <h5 class="text-primary mb-3">Pantry Contents</h5>
+            <ul id="pantryList" class="list-group mb-2"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="row justify-content-center mt-5">
+        <div class="col-md-7 col-lg-5">
+            <div class="card p-4">
+            <h4 class="text-primary mb-3">Recipe Generator</h4>
+            <div id="ai-chat-box" class="border rounded p-2 mb-2" style="height:100px; overflow-y:auto; background:#fcfaf8;"></div>
+            <form id="chat-form" class="input-group">
+                <input type="text" id="chat-input" class="form-control" placeholder="Type your message..." required>
+                <button class="btn btn-primary" type="submit">Send</button>
+            </form>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="editForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editModalLabel">Edit Pantry Item</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-id">
+          <div class="mb-3">
+            <label for="edit-item" class="form-label">Item Name</label>
+            <input type="text" class="form-control" id="edit-item" required>
+          </div>
+          <div class="mb-3">
+            <label for="edit-quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="edit-quantity" min="1" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let editModal = new bootstrap.Modal(document.getElementById('editModal'));
+    let currentEditId = null;
+
+    // Fetch and display pantry items
+    async function fetchPantry() {
+      try {
+        const res = await fetch('http://localhost:5000/api/pantry');
+        const items = await res.json();
+        document.getElementById('pantryList').innerHTML =
+          items.length
+            ? items.map(item =>
+                `<li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <span class="fw-bold">${item["Item Name"]}</span>
+                    <span class="badge bg-primary rounded-pill ms-2">${item.Quantity}</span>
+                  </div>
+                  <div>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditModal('${item.id}', '${item["Item Name"]}', '${item.Quantity}')">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${item.id}')">Delete</button>
+                  </div>
+                </li>`
+              ).join('')
+            : '<li class="list-group-item text-muted">No items in your pantry.</li>';
+      } catch (e) {
+        document.getElementById('pantryList').innerHTML =
+          "<li class='list-group-item text-danger'>Error loading pantry.</li>";
+      }
+    }
+
+    // Add item
+    document.getElementById('addForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const item = document.getElementById('item').value;
+      const quantity = document.getElementById('quantity').value;
+      await fetch('http://localhost:5000/api/pantry', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({"Item Name": item, "Quantity": Number(quantity)})
+      });
+      document.getElementById('addForm').reset();
+      if (document.getElementById('pantrySection').style.display === 'block') {
+        fetchPantry();
+      }
+    };
+
+    // Toggle pantry display
+    document.getElementById('togglePantryBtn').onclick = async function () {
+      const pantrySection = document.getElementById('pantrySection');
+      if (pantrySection.style.display === 'none') {
+        await fetchPantry();
+        pantrySection.style.display = 'block';
+        this.textContent = 'Hide Pantry';
+        this.classList.remove('btn-outline-primary');
+        this.classList.add('btn-secondary');
+      } else {
+        pantrySection.style.display = 'none';
+        this.textContent = 'Show Pantry';
+        this.classList.remove('btn-secondary');
+        this.classList.add('btn-outline-primary');
+      }
+    };
+
+    // Delete item
+    async function deleteItem(id) {
+      if (!confirm('Delete this item?')) return;
+      await fetch(`http://localhost:5000/api/pantry/${id}`, { method: 'DELETE' });
+      fetchPantry();
+    }
+
+    // Open edit modal
+    window.openEditModal = function(id, name, quantity) {
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-item').value = name;
+      document.getElementById('edit-quantity').value = quantity;
+      editModal.show();
+    }
+
+    // Handle edit form submit
+    document.getElementById('editForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-id').value;
+      const name = document.getElementById('edit-item').value;
+      const quantity = document.getElementById('edit-quantity').value;
+      await fetch(`http://localhost:5000/api/pantry/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({"Item Name": name, "Quantity": Number(quantity)})
+      });
+      editModal.hide();
+      fetchPantry();
+    }
+
+    // Simple AI chat logic
+    const chatBox = document.getElementById('ai-chat-box');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+
+    function appendMessage(sender, text) {
+    const msg = document.createElement('div');
+    msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    msg.classList.add('mb-1');
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    let memory = [];
+
+    chatForm.onsubmit = async function(e) {
+        e.preventDefault();
+        const userMsg = chatInput.value;
+        appendMessage('You', userMsg);
+        chatInput.value = '';
+        // Send to backend AI agent
+        appendMessage('RecipeAgent', '<span class="text-muted">Thinking...</span>');
+        const res = await fetch('http://localhost:5000/api/recipes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: userMsg, memory: memory})
+        });
+        const data = await res.json();
+        // Remove "Thinking..." and add real response
+        chatBox.lastChild.remove();
+        appendMessage('RecipeAgent', data.response);
+        memory = data.memory;
+    };
+  </script>
+</body>
+</html>
