@@ -3,3 +3,4 @@ pandas
 python-dotenv>=0.21.0
 flask>=2.0.0
 litellm
+flask_cors
