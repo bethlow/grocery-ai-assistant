@@ -89,7 +89,7 @@
     // Fetch and display pantry items
     async function fetchPantry() {
       try {
-        const res = await fetch('http://localhost:5000/api/pantry');
+        const res = await fetch('/api/pantry');
         const items = await res.json();
         document.getElementById('pantryList').innerHTML =
           items.length
@@ -117,7 +117,7 @@
       e.preventDefault();
       const item = document.getElementById('item').value;
       const quantity = document.getElementById('quantity').value;
-      await fetch('http://localhost:5000/api/pantry', {
+      await fetch('/api/pantry', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({"Item Name": item, "Quantity": Number(quantity)})
@@ -148,7 +148,7 @@
     // Delete item
     async function deleteItem(id) {
       if (!confirm('Delete this item?')) return;
-      await fetch(`http://localhost:5000/api/pantry/${id}`, { method: 'DELETE' });
+      await fetch(`/api/pantry/${id}`, { method: 'DELETE' });
       fetchPantry();
     }
 
@@ -166,7 +166,7 @@
       const id = document.getElementById('edit-id').value;
       const name = document.getElementById('edit-item').value;
       const quantity = document.getElementById('edit-quantity').value;
-      await fetch(`http://localhost:5000/api/pantry/${id}`, {
+      await fetch(`/api/pantry/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({"Item Name": name, "Quantity": Number(quantity)})
@@ -197,7 +197,7 @@
         chatInput.value = '';
         // Send to backend AI agent
         appendMessage('RecipeAgent', '<span class="text-muted">Thinking...</span>');
-        const res = await fetch('http://localhost:5000/api/recipes', {
+        const res = await fetch('/api/recipes', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({message: userMsg, memory: memory})
