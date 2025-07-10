@@ -49,7 +49,7 @@ def save_pantry(df):
 
 @app.route('/')
 def index():
-    render_template('../index.html')
+    render_template('index.html')
 
 @app.route('/api/pantry', methods=['GET'])
 def get_pantry():
