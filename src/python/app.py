@@ -146,8 +146,4 @@ agent = Agent(goals, agent_language, action_registry, generate_response, environ
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    # user_input = input("What would you like me to do? ")
-    # output = agent.run(user_input)
-    # print(output.get_memories())
-    # app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)
