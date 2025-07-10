@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import pandas as pd
 from agent import Agent, Goal, AgentFunctionCallingActionLanguage, Action, ActionRegistry, Environment, generate_response, Memory
 import os
@@ -46,6 +46,10 @@ def load_pantry():
 
 def save_pantry(df):
     df.to_csv(csv_path, index=False)
+
+@app.route('/')
+def index():
+    render_template('../index.html')
 
 @app.route('/api/pantry', methods=['GET'])
 def get_pantry():
